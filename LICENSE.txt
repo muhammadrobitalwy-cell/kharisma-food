@@ -1,0 +1,19 @@
+Kharisma Food License
+All Rights Reserved
+
+Copyright (c) 2025 Kharisma Food
+
+Seluruh kode sumber, dokumentasi, desain, serta aset yang terdapat pada
+repositori ini adalah hak cipta milik Kharisma Food.
+
+Dilarang keras untuk:
+- Menyalin, mendistribusikan, atau mempublikasikan ulang sebagian atau seluruh isi kode.
+- Mengubah, memodifikasi, atau membuat turunan dari kode ini.
+- Menggunakan kode ini untuk tujuan komersial maupun non-komersial tanpa izin tertulis.
+
+Penggunaan kode ini hanya diperbolehkan bagi pihak yang telah mendapatkan
+otorisasi resmi dari Kharisma Food.
+
+Untuk permintaan izin atau pertanyaan, silakan hubungi:
+📧 Email: muhammadrobitalwy@gmail.com
+☎️ Telepon: 0857-0708-0863

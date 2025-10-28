@@ -1,0 +1,14 @@
+{
+  "name": "Kharisma Food",
+  "short_name": "Kharisma Food",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#003366",
+  "theme_color": "#1a73e8",
+  "scope": "/",
+  "description": "Aplikasi monitoring Keuangan Kharisma Food.",
+  "icons": [
+    { "src": "/logo-opi.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/logo-opi.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
