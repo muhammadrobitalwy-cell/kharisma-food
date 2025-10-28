@@ -287,32 +287,39 @@ function showAlert(pesan, tipe = "info") {
 
 /* =====================================================
    FUNGSI KONVERSI TEKS ANGKA INDONESIA → NOMINAL
+   FIXED: Mendukung angka seperti 'dua puluh ribu' dan 'seratus lima puluh ribu'
    ===================================================== */
 function ubahTeksKeAngka(teks) {
   if (!teks || typeof teks !== 'string') return 0;
-  
-  // Normalisasi teks
-  teks = teks.toLowerCase()
-    .replace(/rupiah|,|dan|untuk|simpan|di|pada|dengan|sebesar/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
 
-  // Dictionary untuk angka dasar
+  // Dictionary untuk angka dasar dan pengali
   const units = {
-    nol: 0, satu: 1, dua: 2, tiga: 3, empat: 4, lima: 5, 
+    nol: 0, satu: 1, dua: 2, tiga: 3, empat: 4, lima: 5,
     enam: 6, tujuh: 7, delapan: 8, sembilan: 9,
-    sepuluh: 10, sebelas: 11, seratus: 100, seribu: 1000
+    sepuluh: 10, sebelas: 11,
   };
-
-  // Dictionary untuk pengali
+  const teens = {
+    belas: 10,
+  };
   const multipliers = {
     puluh: 10,
     ratus: 100,
     ribu: 1000,
-    juta: 1000000
+    juta: 1000000,
   };
 
-  // 1. Handle angka digital (seperti "7", "2.5", "2,5 juta")
+  // Normalisasi teks
+  teks = teks.toLowerCase()
+    .replace(/rupiah|,|dan|untuk|simpan|di|pada|dengan|sebesar|seratus|seribu/g, (match) => {
+      // Ganti seratus/seribu menjadi "satu ratus"/"satu ribu" untuk memudahkan parsing
+      if (match === 'seratus') return 'satu ratus';
+      if (match === 'seribu') return 'satu ribu';
+      return ' ';
+    })
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // 1. Handle angka digital (seperti "7", "2.5", "2,5 juta") - TETAP
   const digitalMatch = teks.match(/(\d+[.,]?\d*)\s*(juta|ribu|ratus|puluh)?/);
   if (digitalMatch && digitalMatch[1]) {
     const numStr = digitalMatch[1].replace(',', '.');
@@ -329,103 +336,112 @@ function ubahTeksKeAngka(teks) {
   // 2. Parsing teks bahasa Indonesia
   const tokens = teks.split(' ').filter(t => t.length > 0);
   let total = 0;
-  let current = 0;
-  let fraction = 0;
-  let inFraction = false;
-  let fractionDigits = [];
+  let currentGroup = 0; // Nilai saat ini (misal: 250 untuk 'dua ratus lima puluh')
+  let lastMultiplier = 1;
 
+  // Fungsi pembantu untuk mengkonversi unit/puluh/ratus
+  function parseCurrentGroup(tokens) {
+    let subtotal = 0;
+    let temp = 0;
+    let hasTens = false; // Flag untuk kasus 'lima belas' (5 + 10 = 15) atau 'dua puluh' (2 * 10 = 20)
+
+    for (let token of tokens) {
+      if (units[token] !== undefined) {
+        temp += units[token];
+        hasTens = false;
+      } else if (teens[token] !== undefined) { // Kata 'belas'
+        temp = temp + teens[token];
+        hasTens = true;
+      } else if (multipliers[token] === 10) { // Kata 'puluh'
+        temp = (temp || 1) * 10;
+        hasTens = true;
+      } else if (multipliers[token] === 100) { // Kata 'ratus'
+        // Jika belum ada nilai, anggap 1 (misal 'ratus' menjadi 100)
+        temp = (temp || 1) * 100;
+        hasTens = false;
+      } else {
+        // Jika token tidak dikenal, hentikan
+        break;
+      }
+    }
+    return temp;
+  }
+
+  // Algoritma Parsing yang Ditingkatkan: Memproses per blok Ribuan/Jutaan
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
 
-    // Handle koma (desimal)
-    if (token === 'koma') {
-      inFraction = true;
-      continue;
-    }
-
-    // Parsing bagian desimal
-    if (inFraction) {
-      if (units[token] !== undefined) {
-        fractionDigits.push(String(units[token]));
-        continue;
-      }
-      
-      const digitMatch = token.match(/\d/);
-      if (digitMatch) {
-        fractionDigits.push(token.replace(/[^\d]/g, ''));
-        continue;
-      }
-      
-      // Jika menemukan kata non-digit, hentikan parsing desimal
-      inFraction = false;
-    }
-
-    // Handle token yang mengandung angka digital
+    // Handle token angka digital yang belum tertangkap Regex awal
     if (/\d/.test(token)) {
       const numericValue = parseFloat(token.replace(',', '.'));
       const nextToken = tokens[i + 1];
       
       if (nextToken && multipliers[nextToken]) {
         total += (numericValue * multipliers[nextToken]);
-        i++; // Skip token berikutnya
+        i++; // Skip multiplier
       } else {
-        current += numericValue;
+        currentGroup += numericValue;
       }
       continue;
     }
 
-    // Handle angka dalam bentuk kata
-    if (units[token] !== undefined) {
-      // Handle kasus khusus "seratus" dan "seribu"
-      if (token === 'seratus' || token === 'seribu') {
-        current += units[token];
-      } else {
-        current += units[token];
-      }
-      continue;
-    }
-
-    // Handle kata "belas"
-    if (token === 'belas') {
-      current = (current || 1) * 10 + (current > 0 ? 0 : 10);
-      continue;
-    }
-
-    // Handle pengali
-    if (multipliers[token]) {
-      if (token === 'ribu' && current === 0) {
-        current = 1; // Handle "ribu" saja berarti 1000
-      }
-      if (token === 'ratus' && current === 0) {
-        current = 1; // Handle "ratus" saja berarti 100
-      }
-      
+    // Handle Multiplier Besar (Ribu, Juta)
+    if (multipliers[token] >= 1000) {
       const multiplier = multipliers[token];
       
-      if (multiplier >= 1000) {
-        // Untuk ribu dan juta - tambahkan ke total
-        total += (current || 1) * multiplier;
-        current = 0;
-      } else {
-        // Untuk puluh dan ratus - kalikan current
-        current = (current || 1) * multiplier;
+      // Ambil token-token sebelum multiplier besar
+      const subTokens = [];
+      let j = i - 1;
+      while (j >= 0 && tokens[j].length > 0 && multipliers[tokens[j]] < 1000 && !/\d/.test(tokens[j])) {
+        subTokens.unshift(tokens[j]);
+        j--;
       }
+      
+      // Hapus token yang sudah diproses dari array tokens
+      tokens.splice(j + 1, i - j);
+      i = j; // Reset index i ke posisi setelah token yang dihapus
+
+      // Konversi subTokens ke angka
+      let subValue = parseCurrentGroup(subTokens);
+      if (subValue === 0 && subTokens.length > 0) subValue = 1; // Jika hanya 'ribu' atau 'juta'
+
+      total += subValue * multiplier;
+      
+      currentGroup = 0; // Reset
+      continue;
+    }
+
+    // Handle Unit, Puluh, Ratus
+    if (units[token] !== undefined || teens[token] !== undefined || multipliers[token] < 1000) {
+      // Kumpulkan semua unit, puluh, ratus yang berdekatan
+      const groupTokens = [];
+      let k = i;
+      while (k < tokens.length && 
+             (units[tokens[k]] !== undefined || 
+              teens[tokens[k]] !== undefined || 
+              multipliers[tokens[k]] < 1000)) {
+        groupTokens.push(tokens[k]);
+        k++;
+      }
+
+      // Hentikan proses jika ada token yang tidak terduga
+      if (groupTokens.length === 0) continue; 
+      
+      currentGroup = parseCurrentGroup(groupTokens);
+      
+      // Pindahkan index i ke akhir groupTokens yang sudah diproses
+      i = k - 1; 
+
+      // Jika ada sisa group, tambahkan ke total (misalnya sisa angka setelah juta/ribu)
+      if (i === tokens.length - 1) total += currentGroup;
+
       continue;
     }
   }
-
-  // Hitung nilai desimal jika ada
-  if (fractionDigits.length > 0) {
-    const fractionStr = fractionDigits.join('');
-    fraction = parseInt(fractionStr, 10) / Math.pow(10, fractionStr.length);
-  }
-
-  // Gabungkan total, current, dan fraction
-  total += current;
   
-  if (fraction > 0) {
-    total += fraction;
-  }
+  // Gabungkan nilai yang tersisa
+  total += currentGroup;
+
 
   // Pembulatan dan return
   const result = Math.round(total);
