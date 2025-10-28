@@ -496,13 +496,14 @@ if (recognition && btnMicOtomatis) {
     return;
   }
 
-  // ==== PERBAIKAN INTELIGEN ====
-  // Tangkap lebih luas: boleh ada kata "sebanyak", "sebesar", dll.
+  // ==================== PERBAIKAN PENANGKAPAN SUARA ====================
+  // Tangkap frasa debit/kredit dengan fleksibel (bisa “sebesar”, “sebanyak”, dll.)
   const matchDebit = hasil.match(/debit\s+(?:sebanyak|sebesar|senilai|sejumlah)?\s*([\w\s.,-]+)/);
   const matchKredit = hasil.match(/kredit\s+(?:sebanyak|sebesar|senilai|sejumlah)?\s*([\w\s.,-]+)/);
   const matchKeterangan = hasil.match(/keterangan\s+(.+)/);
   const isSimpan = hasil.includes("simpan");
 
+  // ----- Debit -----
   if (matchDebit) {
     const debitTeks = matchDebit[1].replace(/rupiah|rp|,|\./g, '').trim();
     const debitNum = ubahTeksKeAngka(debitTeks);
@@ -510,6 +511,7 @@ if (recognition && btnMicOtomatis) {
     document.getElementById("pemasukan").dispatchEvent(new Event('input', { bubbles: true }));
   }
 
+  // ----- Kredit -----
   if (matchKredit) {
     const kreditTeks = matchKredit[1].replace(/rupiah|rp|,|\./g, '').trim();
     const kreditNum = ubahTeksKeAngka(kreditTeks);
@@ -517,17 +519,26 @@ if (recognition && btnMicOtomatis) {
     document.getElementById("pengeluaran").dispatchEvent(new Event('input', { bubbles: true }));
   }
 
-  // Keterangan hanya diisi jika tidak terdeteksi debit/kredit
-  if (matchKeterangan && !matchDebit && !matchKredit) {
-    let ket = matchKeterangan[1].replace(/\bsimpan\b.*/, "").trim();
+  // ----- Keterangan (WAJIB) -----
+  if (matchKeterangan) {
+    const ket = matchKeterangan[1]
+      .replace(/\bsimpan\b.*/, "")   // hapus kata "simpan" dan sesudahnya
+      .trim();
     document.getElementById("keterangan").value = ket;
   }
 
+  // ==================== STATUS AKHIR ====================
   btnMicOtomatis.classList.remove("listening");
 
   if (isSimpan) {
     statusSuara.textContent = "✅ Disimpan otomatis";
     statusSuara.className = "status-simpan";
+    // Pastikan keterangan tidak kosong sebelum menyimpan
+    const ketValue = document.getElementById("keterangan").value.trim();
+    if (ketValue === "") {
+      showAlert("❗ Keterangan wajib diisi sebelum simpan.", "error");
+      return;
+    }
     setTimeout(() => document.getElementById("btnSimpan").click(), 700);
   } else {
     statusSuara.textContent = "🟤 Selesai mendengar";
@@ -535,7 +546,6 @@ if (recognition && btnMicOtomatis) {
     showAlert("✅ Data suara terisi. Ucapkan 'simpan' untuk menyimpan.", "success");
   }
 };
-
 
   recognition.onerror = (e) => {
     console.error("SpeechRecognition error:", e.error);
