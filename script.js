@@ -88,8 +88,6 @@ document.getElementById('btnLogout')?.addEventListener('click', async () => {
   }
 })();
 
-// ...rest of your existing code remains the same...
-
 // =================== LOAD DATA PERUSAHAAN ===================
 async function loadPerusahaan() {
   const { data, error } = await supabase.from('perusahaan').select('*').limit(1);
@@ -110,6 +108,7 @@ document.getElementById('btnSimpan')?.addEventListener('click', async () => {
     return;
   }
 
+  // **Penting**: Pastikan formater RupiahInput tidak menghilangkan angka sebelum disimpan
   const debitRaw = document.getElementById('pemasukan').value.replace(/\D/g, '');
   const kreditRaw = document.getElementById('pengeluaran').value.replace(/\D/g, '');
   const debit = parseFloat(debitRaw) || 0;
@@ -169,7 +168,7 @@ async function loadLaporan() {
     const kredit = Number(row.kredit || 0);
     saldo += debit - kredit;
     const tglObj = new Date(row.tanggal);
-	const tgl = `${String(tglObj.getDate()).padStart(2, '0')}/${String(tglObj.getMonth() + 1).padStart(2, '0')}/${String(tglObj.getFullYear()).slice(-2)}`;
+	  const tgl = `${String(tglObj.getDate()).padStart(2, '0')}/${String(tglObj.getMonth() + 1).padStart(2, '0')}/${String(tglObj.getFullYear()).slice(-2)}`;
 
 
     html += `
@@ -263,17 +262,29 @@ async function loadLaporan() {
 
 
 // =================== UTILITAS ===================
+/**
+ * Memformat angka menjadi format Rupiah (IDR). Cth: 200000 -> 200.000
+ * @param {number} num Angka yang akan diformat.
+ * @returns {string} String angka yang sudah diformat.
+ */
 function formatRupiah(num) {
+  // Menggunakan toLocaleString untuk pemformatan standar Indonesia
   return (Number(num) || 0).toLocaleString('id-ID');
 }
 
 /* =====================================================
-   OPI FOOD - MODE SUARA OTOMATIS LENGKAP (v2.5)
+   OPI FOOD - MODE SUARA OTOMATIS LENGKAP (v2.6)
    ===================================================== */
 
-/* ---------- FUNGSI FORMAT RUPIAH ---------- */
+/* ---------- FUNGSI FORMAT RUPIAH INPUT ---------- */
+/**
+ * Digunakan pada event 'oninput' untuk memformat input saat diketik.
+ * @param {HTMLInputElement} el Elemen input yang diinputkan.
+ */
 function formatRupiahInput(el) {
+  // Hapus semua non-digit
   let val = el.value.replace(/\D/g, "");
+  // Format menjadi string Rupiah (cth: 200000 -> "200.000")
   el.value = val ? Number(val).toLocaleString("id-ID") : "";
 }
 
@@ -319,7 +330,7 @@ function ubahTeksKeAngka(teks) {
     .replace(/\s+/g, " ")
     .trim();
 
-  // 1. Handle angka digital (seperti "7", "2.5", "2,5 juta") - TETAP
+  // 1. Handle angka digital (seperti "7", "2.5", "2,5 juta")
   const digitalMatch = teks.match(/(\d+[.,]?\d*)\s*(juta|ribu|ratus|puluh)?/);
   if (digitalMatch && digitalMatch[1]) {
     const numStr = digitalMatch[1].replace(',', '.');
@@ -336,29 +347,29 @@ function ubahTeksKeAngka(teks) {
   // 2. Parsing teks bahasa Indonesia
   const tokens = teks.split(' ').filter(t => t.length > 0);
   let total = 0;
-  let currentGroup = 0; // Nilai saat ini (misal: 250 untuk 'dua ratus lima puluh')
-  let lastMultiplier = 1;
+  let currentGroup = 0; 
 
   // Fungsi pembantu untuk mengkonversi unit/puluh/ratus
   function parseCurrentGroup(tokens) {
     let subtotal = 0;
     let temp = 0;
-    let hasTens = false; // Flag untuk kasus 'lima belas' (5 + 10 = 15) atau 'dua puluh' (2 * 10 = 20)
 
     for (let token of tokens) {
       if (units[token] !== undefined) {
         temp += units[token];
-        hasTens = false;
-      } else if (teens[token] !== undefined) { // Kata 'belas'
-        temp = temp + teens[token];
-        hasTens = true;
-      } else if (multipliers[token] === 10) { // Kata 'puluh'
+      } else if (teens[token] !== undefined) { 
+        // Kasus belasan (satu belas -> 11, dua belas -> 12, dst.)
+        temp = (temp || 1) + teens[token]; // Misal: satu (1) + belas (10) = 11
+        // Khusus sebelas, harusnya 11. Karena sebelas sudah ada di units, 
+        // token 'belas' disini hanya dipakai untuk belasan 12-19 yang dipisah
+        // Sebagian besar pengenal suara menggabungkan "dua belas" menjadi "duabelas", 
+        // tapi jika terpisah, kita tangani.
+      } else if (multipliers[token] === 10) { 
+        // Kasus puluhan (dua puluh -> 2 * 10 = 20)
         temp = (temp || 1) * 10;
-        hasTens = true;
-      } else if (multipliers[token] === 100) { // Kata 'ratus'
-        // Jika belum ada nilai, anggap 1 (misal 'ratus' menjadi 100)
+      } else if (multipliers[token] === 100) { 
+        // Kasus ratusan (dua ratus -> 2 * 100 = 200)
         temp = (temp || 1) * 100;
-        hasTens = false;
       } else {
         // Jika token tidak dikenal, hentikan
         break;
@@ -389,9 +400,10 @@ function ubahTeksKeAngka(teks) {
     if (multipliers[token] >= 1000) {
       const multiplier = multipliers[token];
       
-      // Ambil token-token sebelum multiplier besar
+      // Ambil token-token sebelum multiplier besar (misal: "dua ratus" sebelum "ribu")
       const subTokens = [];
       let j = i - 1;
+      // Ambil semua token di belakang hingga ketemu awal kalimat atau multiplier besar
       while (j >= 0 && tokens[j].length > 0 && multipliers[tokens[j]] < 1000 && !/\d/.test(tokens[j])) {
         subTokens.unshift(tokens[j]);
         j--;
@@ -399,11 +411,12 @@ function ubahTeksKeAngka(teks) {
       
       // Hapus token yang sudah diproses dari array tokens
       tokens.splice(j + 1, i - j);
-      i = j; // Reset index i ke posisi setelah token yang dihapus
-
+      i = j; // Reset index i ke posisi sebelum token yang dihapus
+      
       // Konversi subTokens ke angka
       let subValue = parseCurrentGroup(subTokens);
-      if (subValue === 0 && subTokens.length > 0) subValue = 1; // Jika hanya 'ribu' atau 'juta'
+      // Jika hanya "ribu" atau "juta" tanpa angka di depan, artinya 1 (misal "satu juta")
+      if (subValue === 0 && subTokens.length > 0) subValue = 1; 
 
       total += subValue * multiplier;
       
@@ -412,27 +425,27 @@ function ubahTeksKeAngka(teks) {
     }
 
     // Handle Unit, Puluh, Ratus
-    if (units[token] !== undefined || teens[token] !== undefined || multipliers[token] < 1000) {
+    if (units[token] !== undefined || teens[token] !== undefined || (multipliers[token] && multipliers[token] < 1000)) {
       // Kumpulkan semua unit, puluh, ratus yang berdekatan
       const groupTokens = [];
       let k = i;
       while (k < tokens.length && 
              (units[tokens[k]] !== undefined || 
               teens[tokens[k]] !== undefined || 
-              multipliers[tokens[k]] < 1000)) {
+              (multipliers[tokens[k]] && multipliers[tokens[k]] < 1000))) {
         groupTokens.push(tokens[k]);
         k++;
       }
 
-      // Hentikan proses jika ada token yang tidak terduga
       if (groupTokens.length === 0) continue; 
       
+      // Hitung group saat ini
       currentGroup = parseCurrentGroup(groupTokens);
       
       // Pindahkan index i ke akhir groupTokens yang sudah diproses
       i = k - 1; 
 
-      // Jika ada sisa group, tambahkan ke total (misalnya sisa angka setelah juta/ribu)
+      // Jika ini adalah akhir dari parsing (tidak ada ribu/juta lagi), tambahkan ke total
       if (i === tokens.length - 1) total += currentGroup;
 
       continue;
@@ -442,12 +455,10 @@ function ubahTeksKeAngka(teks) {
   // Gabungkan nilai yang tersisa
   total += currentGroup;
 
-
   // Pembulatan dan return
   const result = Math.round(total);
   return result > 0 ? result : 0;
 }
-
 
 
 /* =====================================================
@@ -458,6 +469,7 @@ const statusSuara = document.getElementById("statusSuara");
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 
+// Menggunakan Native Web Speech API karena kode lama Anda menggunakannya
 if (recognition && btnMicOtomatis) {
   recognition.lang = "id-ID";
   recognition.continuous = false;
@@ -485,20 +497,26 @@ if (recognition && btnMicOtomatis) {
     }
 
     // --- Ambil nilai berdasarkan ucapan ---
-    const matchDebit = hasil.match(/debit\s+([a-z\d\s,]+)/);
-    const matchKredit = hasil.match(/kredit\s+([a-z\d\s,]+)/);
+    const matchDebit = hasil.match(/debit\s+([\da-z.,\s]+)/);
+    const matchKredit = hasil.match(/kredit\s+([\da-z.,\s]+)/);
     const matchKeterangan = hasil.match(/keterangan\s+(.+)/);
     const isSimpan = hasil.includes("simpan");
 
     if (matchDebit) {
       const debitTeks = matchDebit[1];
-      const debitNum = ubahTeksKeAngka(debitTeks) || parseInt(debitTeks.replace(/\D/g, '')) || 0;
+      // Menggunakan fungsi perbaikan: cth: "dua ratus ribu" -> 200000
+      const debitNum = ubahTeksKeAngka(debitTeks); 
+      
+      // Mengisi form dengan format Rupiah (cth: 200000 -> "200.000")
       document.getElementById("pemasukan").value = debitNum.toLocaleString("id-ID");
     }
 
     if (matchKredit) {
       const kreditTeks = matchKredit[1];
-      const kreditNum = ubahTeksKeAngka(kreditTeks) || parseInt(kreditTeks.replace(/\D/g, '')) || 0;
+      // Menggunakan fungsi perbaikan: cth: "lima puluh ribu" -> 50000
+      const kreditNum = ubahTeksKeAngka(kreditTeks); 
+
+      // Mengisi form dengan format Rupiah (cth: 50000 -> "50.000")
       document.getElementById("pengeluaran").value = kreditNum.toLocaleString("id-ID");
     }
 
@@ -547,6 +565,7 @@ if (recognition && btnMicOtomatis) {
   console.warn("Speech Recognition tidak didukung browser ini.");
   if (statusSuara) statusSuara.textContent = "⚠️ Browser tidak mendukung suara.";
 }
+
 
 // =================== REMEMBER EMAIL OTOMATIS ===================
 document.addEventListener('DOMContentLoaded', () => {
