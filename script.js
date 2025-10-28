@@ -526,16 +526,7 @@ if (recognition && btnMicOtomatis) {
       // PENTING: Pemicuan oninput secara manual
       const event = new Event('input', { bubbles: true });
       document.getElementById("pengeluaran").dispatchEvent(event);
-    }
-
-    if (matchKeterangan) {
-      let ket = matchKeterangan[1].replace(/\bsimpan\b.*/, "").trim();
-      // Keterangan tetap diisi sebagai teks biasa
-      document.getElementById("keterangan").value = ket;
-    }
-    
-    // ... (sisa kode tidak berubah) ...
-  };
+    }  
 
     if (matchKeterangan) {
       let ket = matchKeterangan[1].replace(/\bsimpan\b.*/, "").trim();
