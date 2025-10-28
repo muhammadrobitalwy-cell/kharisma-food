@@ -433,6 +433,7 @@ function ubahTeksKeAngka(teks) {
 }
 
 
+
 /* =====================================================
    MODE SUARA OTOMATIS - ISI FORM & SIMPAN
    ===================================================== */
@@ -441,129 +442,115 @@ const statusSuara = document.getElementById("statusSuara");
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const recognition = SpeechRecognition ? new SpeechRecognition() : null;
 
-if (btnMicOtomatis) {
-  let mediaRecorder;
-  let audioChunks = [];
+if (recognition && btnMicOtomatis) {
+  recognition.lang = "id-ID";
+  recognition.continuous = false;
+  recognition.interimResults = false;
 
-  btnMicOtomatis.onclick = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorder = new MediaRecorder(stream);
-      audioChunks = [];
+  btnMicOtomatis.onclick = () => {
+    recognition.start();
+    btnMicOtomatis.classList.add("listening");
+    statusSuara.textContent = "🎧 Mendengarkan...";
+    statusSuara.className = "status-dengar";
+  };
 
-      mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+  recognition.onresult = (event) => {
+    const hasil = event.results[0][0].transcript.toLowerCase().trim();
+    console.log("🎤 Hasil:", hasil);
 
-      mediaRecorder.onstop = async () => {
-        try {
-          const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
-          const fileName = `voice_${Date.now()}.webm`;
+    const stopCommands = ["salah", "ulangi", "sebentar", "kembali", "gagal"];
+    if (stopCommands.some(cmd => hasil.includes(cmd))) {
+      recognition.stop();
+      btnMicOtomatis.classList.remove("listening");
+      statusSuara.textContent = "⛔ Dihentikan oleh perintah suara";
+      statusSuara.className = "status-error";
+      showAlert("🎙️ Perekaman dihentikan.", "error");
+      return;
+    }
 
-          statusSuara.textContent = "⏫ Mengunggah ke Supabase...";
+    // --- Ambil nilai berdasarkan ucapan ---
+    const matchDebit = hasil.match(/debit\s+([a-z\d\s,]+)/);
+    const matchKredit = hasil.match(/kredit\s+([a-z\d\s,]+)/);
+    const matchKeterangan = hasil.match(/keterangan\s+(.+)/);
+    const isSimpan = hasil.includes("simpan");
 
-          // ✅ Upload ke bucket "audio_input"
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from("audio_input")
-            .upload(fileName, audioBlob, { contentType: "audio/webm" });
+    if (matchDebit) {
+      const debitTeks = matchDebit[1];
+      const debitNum = ubahTeksKeAngka(debitTeks) || parseInt(debitTeks.replace(/\D/g, '')) || 0;
+      document.getElementById("pemasukan").value = debitNum.toLocaleString("id-ID");
+    }
 
-          if (uploadError) {
-            console.error("Upload error:", uploadError);
-            showAlert("❌ Gagal upload audio: " + uploadError.message, "error");
-            return;
-          }
+    if (matchKredit) {
+      const kreditTeks = matchKredit[1];
+      const kreditNum = ubahTeksKeAngka(kreditTeks) || parseInt(kreditTeks.replace(/\D/g, '')) || 0;
+      document.getElementById("pengeluaran").value = kreditNum.toLocaleString("id-ID");
+    }
 
-          // ✅ Ambil URL publik
-          const { data: publicUrl } = supabase.storage
-            .from("audio_input")
-            .getPublicUrl(fileName);
+    if (matchKeterangan) {
+      let ket = matchKeterangan[1].replace(/\bsimpan\b.*/, "").trim();
+      document.getElementById("keterangan").value = ket;
+    }
 
-          const audioUrl = publicUrl.publicUrl;
-          console.log("🎧 File berhasil diupload:", audioUrl);
+    btnMicOtomatis.classList.remove("listening");
 
-          // ✅ Kirim URL ke Edge Function (Deepgram)
-          statusSuara.textContent = "🧠 Mengirim ke Deepgram...";
-          const res = await fetch(
-            "https://igqyanangsakokphgvkg.functions.supabase.co/speech-to-text-dg",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${SUPABASE_KEY}`,
-              },
-              body: JSON.stringify({ audioUrl }),
-            }
-          );
-
-          const result = await res.json();
-          console.log("🎤 Hasil transkripsi:", result);
-
-          if (result.text) {
-            const hasil = result.text.toLowerCase();
-
-            // === Ekstraksi data dari hasil transkrip ===
-            const matchDebit = hasil.match(/debit\s+([\da-z.,\s]+)/);
-            const matchKredit = hasil.match(/kredit\s+([\da-z.,\s]+)/);
-            const matchKeterangan = hasil.match(/keterangan\s+(.+)/);
-            const isSimpan = hasil.includes("simpan");
-
-            // === Isi form ===
-            if (matchDebit) {
-              const debitTeks = matchDebit[1];
-              const debitNum = ubahTeksKeAngka(debitTeks);
-              document.getElementById("pemasukan").value =
-                debitNum.toLocaleString("id-ID");
-            }
-
-            if (matchKredit) {
-              const kreditTeks = matchKredit[1];
-              const kreditNum = ubahTeksKeAngka(kreditTeks);
-              document.getElementById("pengeluaran").value =
-                kreditNum.toLocaleString("id-ID");
-            }
-
-            if (matchKeterangan) {
-              const ket = matchKeterangan[1].replace(/\bsimpan\b.*/, "").trim();
-              document.getElementById("keterangan").value = ket;
-            }
-
-            // === Simpan otomatis jika ada kata "simpan" ===
-            if (isSimpan) {
-              statusSuara.textContent = "✅ Disimpan otomatis";
-              document.getElementById("btnSimpan").click();
-              showAlert("✅ Data disimpan otomatis dari suara.", "success");
-            } else {
-              statusSuara.textContent = "🟤 Selesai (data dari suara)";
-              showAlert("✅ Form terisi dari hasil suara.", "success");
-            }
-          } else {
-            showAlert("❌ Gagal mengenali suara.", "error");
-          }
-        } catch (err) {
-          console.error("Deepgram error:", err);
-          showAlert("❌ Terjadi kesalahan saat kirim audio.", "error");
-        }
-      };
-
-      // === Saat tombol mic diklik pertama kali ===
-      mediaRecorder.start();
-      btnMicOtomatis.classList.add("listening");
-      statusSuara.textContent = "🎙️ Sedang merekam... Klik lagi untuk stop.";
-      btnMicOtomatis.textContent = "⏹️ Stop";
-
-      // === Klik lagi untuk stop ===
-      btnMicOtomatis.onclick = () => {
-        mediaRecorder.stop();
-        stream.getTracks().forEach((t) => t.stop());
-        btnMicOtomatis.classList.remove("listening");
-        btnMicOtomatis.textContent = "🎤 Bicara";
-        statusSuara.textContent = "🟤 Memproses hasil...";
-      };
-    } catch (err) {
-      console.error("Mic error:", err);
-      showAlert("❌ Mic tidak dapat digunakan atau belum diizinkan.", "error");
+    if (isSimpan) {
+      statusSuara.textContent = "✅ Disimpan otomatis";
+      statusSuara.className = "status-simpan";
+      setTimeout(() => document.getElementById("btnSimpan").click(), 700);
+    } else {
+      statusSuara.textContent = "🟤 Selesai mendengar";
+      statusSuara.className = "status-selesai";
+      showAlert("✅ Data suara terisi. Ucapkan 'simpan' untuk menyimpan.", "success");
     }
   };
+
+  recognition.onerror = (e) => {
+    console.error("SpeechRecognition error:", e.error);
+    btnMicOtomatis.classList.remove("listening");
+    if (e.error === "no-speech") {
+      statusSuara.textContent = "🔇 Tidak ada suara terdeteksi";
+      statusSuara.className = "status-hening";
+    } else if (e.error === "audio-capture") {
+      statusSuara.textContent = "🎧 Mic tidak aktif / belum diizinkan";
+      statusSuara.className = "status-error";
+    } else {
+      statusSuara.textContent = "❌ Kesalahan: " + e.error;
+      statusSuara.className = "status-error";
+    }
+  };
+
+  recognition.onend = () => {
+    btnMicOtomatis.classList.remove("listening");
+    if (!statusSuara.className.includes("status-simpan") &&
+        !statusSuara.className.includes("status-error")) {
+      statusSuara.textContent = "🟤 Selesai mendengar";
+      statusSuara.className = "status-selesai";
+    }
+  };
+} else {
+  console.warn("Speech Recognition tidak didukung browser ini.");
+  if (statusSuara) statusSuara.textContent = "⚠️ Browser tidak mendukung suara.";
 }
 
+// ===================== LOGOUT HANDLER =====================
+document.addEventListener('DOMContentLoaded', () => {
+  const btnLogout = document.getElementById('btnLogout');
+  if (btnLogout) {
+    btnLogout.addEventListener('click', () => {
+      btnLogout.textContent = "Logging out...";
+      btnLogout.disabled = true;
+      btnLogout.style.opacity = 0.7;
+
+      // Hapus semua data login, tapi jangan hapus email tersimpan
+      localStorage.removeItem('user');
+      sessionStorage.clear();
+
+      setTimeout(() => {
+        window.location.href = 'login.html';
+      }, 800);
+    });
+  }
+});
 
 
 // =================== REMEMBER EMAIL OTOMATIS ===================
