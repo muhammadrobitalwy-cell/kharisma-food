@@ -4,7 +4,7 @@
   "start_url": "./",
   "display": "standalone",
   "background_color": "#d6a75b",
-  "theme_color": "#1a73e8",
+  "theme_color": "#f5bf67",
   "scope": ".",
   "description": "Aplikasi monitoring Keuangan Kharisma Food.",
   "icons": [
@@ -12,5 +12,6 @@
     { "src": "/logo-opi.png", "sizes": "512x512", "type": "image/png" }
   ]
 }
+
 
 
