@@ -532,27 +532,6 @@ if (recognition && btnMicOtomatis) {
   if (statusSuara) statusSuara.textContent = "⚠️ Browser tidak mendukung suara.";
 }
 
-// ===================== LOGOUT HANDLER =====================
-document.addEventListener('DOMContentLoaded', () => {
-  const btnLogout = document.getElementById('btnLogout');
-  if (btnLogout) {
-    btnLogout.addEventListener('click', () => {
-      btnLogout.textContent = "Logging out...";
-      btnLogout.disabled = true;
-      btnLogout.style.opacity = 0.7;
-
-      // Hapus semua data login, tapi jangan hapus email tersimpan
-      localStorage.removeItem('user');
-      sessionStorage.clear();
-
-      setTimeout(() => {
-        window.location.href = 'login.html';
-      }, 800);
-    });
-  }
-});
-
-
 // =================== REMEMBER EMAIL OTOMATIS ===================
 document.addEventListener('DOMContentLoaded', () => {
   const emailInput = document.getElementById('email');
