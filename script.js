@@ -496,8 +496,7 @@ if (recognition && btnMicOtomatis) {
     return;
   }
 
-  // ==================== PERBAIKAN PENANGKAPAN SUARA ====================
-  // Tangkap frasa debit/kredit dengan fleksibel (bisa “sebesar”, “sebanyak”, dll.)
+  // ==================== PENANGKAPAN SUARA ====================
   const matchDebit = hasil.match(/debit\s+(?:sebanyak|sebesar|senilai|sejumlah)?\s*([\w\s.,-]+)/);
   const matchKredit = hasil.match(/kredit\s+(?:sebanyak|sebesar|senilai|sejumlah)?\s*([\w\s.,-]+)/);
   const matchKeterangan = hasil.match(/keterangan\s+(.+)/);
@@ -522,30 +521,39 @@ if (recognition && btnMicOtomatis) {
   // ----- Keterangan (WAJIB) -----
   if (matchKeterangan) {
     const ket = matchKeterangan[1]
-      .replace(/\bsimpan\b.*/, "")   // hapus kata "simpan" dan sesudahnya
+      .replace(/\bsimpan\b.*/, "")
       .trim();
     document.getElementById("keterangan").value = ket;
   }
 
-  // ==================== STATUS AKHIR ====================
+  // ==================== STATUS & OTOMATIS SIMPAN ====================
   btnMicOtomatis.classList.remove("listening");
 
   if (isSimpan) {
-    statusSuara.textContent = "✅ Disimpan otomatis";
-    statusSuara.className = "status-simpan";
-    // Pastikan keterangan tidak kosong sebelum menyimpan
-    const ketValue = document.getElementById("keterangan").value.trim();
-    if (ketValue === "") {
-      showAlert("❗ Keterangan wajib diisi sebelum simpan.", "error");
-      return;
-    }
-    setTimeout(() => document.getElementById("btnSimpan").click(), 700);
+    statusSuara.textContent = "⏳ Mengecek data sebelum simpan...";
+    statusSuara.className = "status-proses";
+
+    // Beri delay agar isi keterangan sempat terisi
+    setTimeout(() => {
+      const ketValue = document.getElementById("keterangan").value.trim();
+      if (ketValue === "") {
+        showAlert("❗ Keterangan wajib diisi sebelum simpan.", "error");
+        statusSuara.textContent = "⚠️ Lengkapi keterangan dulu.";
+        statusSuara.className = "status-error";
+        return;
+      }
+
+      statusSuara.textContent = "✅ Disimpan otomatis";
+      statusSuara.className = "status-simpan";
+      document.getElementById("btnSimpan").click();
+    }, 800);
   } else {
     statusSuara.textContent = "🟤 Selesai mendengar";
     statusSuara.className = "status-selesai";
     showAlert("✅ Data suara terisi. Ucapkan 'simpan' untuk menyimpan.", "success");
   }
 };
+
 
   recognition.onerror = (e) => {
     console.error("SpeechRecognition error:", e.error);
