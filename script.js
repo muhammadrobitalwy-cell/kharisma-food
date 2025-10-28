@@ -504,21 +504,38 @@ if (recognition && btnMicOtomatis) {
 
     if (matchDebit) {
       const debitTeks = matchDebit[1];
-      // Menggunakan fungsi perbaikan: cth: "dua ratus ribu" -> 200000
+      // 1. Konversi teks suara ke nilai numerik (cth: 200000)
       const debitNum = ubahTeksKeAngka(debitTeks); 
       
-      // Mengisi form dengan format Rupiah (cth: 200000 -> "200.000")
-      document.getElementById("pemasukan").value = debitNum.toLocaleString("id-ID");
+      // ✅ PERBAIKAN: Isi form dengan angka mentah (string), biarkan oninput formatRupiahInput(this) memformatnya
+      // String(200000) akan menjadi "200000". oninput akan mengubahnya menjadi "200.000"
+      document.getElementById("pemasukan").value = String(debitNum);
+      
+      // PENTING: Pemicuan oninput secara manual untuk beberapa kasus browser
+      const event = new Event('input', { bubbles: true });
+      document.getElementById("pemasukan").dispatchEvent(event);
     }
 
     if (matchKredit) {
       const kreditTeks = matchKredit[1];
-      // Menggunakan fungsi perbaikan: cth: "lima puluh ribu" -> 50000
       const kreditNum = ubahTeksKeAngka(kreditTeks); 
 
-      // Mengisi form dengan format Rupiah (cth: 50000 -> "50.000")
-      document.getElementById("pengeluaran").value = kreditNum.toLocaleString("id-ID");
+      // ✅ PERBAIKAN: Isi form dengan angka mentah (string)
+      document.getElementById("pengeluaran").value = String(kreditNum);
+      
+      // PENTING: Pemicuan oninput secara manual
+      const event = new Event('input', { bubbles: true });
+      document.getElementById("pengeluaran").dispatchEvent(event);
     }
+
+    if (matchKeterangan) {
+      let ket = matchKeterangan[1].replace(/\bsimpan\b.*/, "").trim();
+      // Keterangan tetap diisi sebagai teks biasa
+      document.getElementById("keterangan").value = ket;
+    }
+    
+    // ... (sisa kode tidak berubah) ...
+  };
 
     if (matchKeterangan) {
       let ket = matchKeterangan[1].replace(/\bsimpan\b.*/, "").trim();
