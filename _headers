@@ -1,19 +1,16 @@
-/sw.js
-  Service-Worker-Allowed: /
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  X-XSS-Protection: 1; mode=block
+  Referrer-Policy: strict-origin-when-cross-origin
+  Cache-Control: public, max-age=31536000, immutable
+
+/index.html
   Cache-Control: no-cache, no-store, must-revalidate
 
 /manifest.json
-  Cache-Control: no-cache
+  Content-Type: application/manifest+json
 
-/index.html
-  Cache-Control: no-cache
-
-/style.css
-  Cache-Control: public, max-age=31536000, immutable
-
-/script.js
-  Cache-Control: public, max-age=31536000, immutable
-
-/logo-opi.png
-  Cache-Control: public, max-age=31536000, immutable
-
+/sw.js
+  Service-Worker-Allowed: /
+  Cache-Control: no-cache, no-store, must-revalidate
