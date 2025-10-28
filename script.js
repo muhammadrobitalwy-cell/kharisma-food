@@ -483,68 +483,59 @@ if (recognition && btnMicOtomatis) {
   };
 
   recognition.onresult = (event) => {
-    const hasil = event.results[0][0].transcript.toLowerCase().trim();
-    console.log("🎤 Hasil:", hasil);
+  const hasil = event.results[0][0].transcript.toLowerCase().trim();
+  console.log("🎤 Hasil:", hasil);
 
-    const stopCommands = ["salah", "ulangi", "sebentar", "kembali", "gagal"];
-    if (stopCommands.some(cmd => hasil.includes(cmd))) {
-      recognition.stop();
-      btnMicOtomatis.classList.remove("listening");
-      statusSuara.textContent = "⛔ Dihentikan oleh perintah suara";
-      statusSuara.className = "status-error";
-      showAlert("🎙️ Perekaman dihentikan.", "error");
-      return;
-    }
-
-    // --- Ambil nilai berdasarkan ucapan ---
-    const matchDebit = hasil.match(/debit\s+([\da-z.,\s]+)/);
-    const matchKredit = hasil.match(/kredit\s+([\da-z.,\s]+)/);
-    const matchKeterangan = hasil.match(/keterangan\s+(.+)/);
-    const isSimpan = hasil.includes("simpan");
-
-    if (matchDebit) {
-      const debitTeks = matchDebit[1];
-      // 1. Konversi teks suara ke nilai numerik (cth: 200000)
-      const debitNum = ubahTeksKeAngka(debitTeks); 
-      
-      // ✅ PERBAIKAN: Isi form dengan angka mentah (string), biarkan oninput formatRupiahInput(this) memformatnya
-      // String(200000) akan menjadi "200000". oninput akan mengubahnya menjadi "200.000"
-      document.getElementById("pemasukan").value = String(debitNum);
-      
-      // PENTING: Pemicuan oninput secara manual untuk beberapa kasus browser
-      const event = new Event('input', { bubbles: true });
-      document.getElementById("pemasukan").dispatchEvent(event);
-    }
-
-    if (matchKredit) {
-      const kreditTeks = matchKredit[1];
-      const kreditNum = ubahTeksKeAngka(kreditTeks); 
-
-      // ✅ PERBAIKAN: Isi form dengan angka mentah (string)
-      document.getElementById("pengeluaran").value = String(kreditNum);
-      
-      // PENTING: Pemicuan oninput secara manual
-      const event = new Event('input', { bubbles: true });
-      document.getElementById("pengeluaran").dispatchEvent(event);
-    }  
-
-    if (matchKeterangan) {
-      let ket = matchKeterangan[1].replace(/\bsimpan\b.*/, "").trim();
-      document.getElementById("keterangan").value = ket;
-    }
-
+  const stopCommands = ["salah", "ulangi", "sebentar", "kembali", "gagal"];
+  if (stopCommands.some(cmd => hasil.includes(cmd))) {
+    recognition.stop();
     btnMicOtomatis.classList.remove("listening");
+    statusSuara.textContent = "⛔ Dihentikan oleh perintah suara";
+    statusSuara.className = "status-error";
+    showAlert("🎙️ Perekaman dihentikan.", "error");
+    return;
+  }
 
-    if (isSimpan) {
-      statusSuara.textContent = "✅ Disimpan otomatis";
-      statusSuara.className = "status-simpan";
-      setTimeout(() => document.getElementById("btnSimpan").click(), 700);
-    } else {
-      statusSuara.textContent = "🟤 Selesai mendengar";
-      statusSuara.className = "status-selesai";
-      showAlert("✅ Data suara terisi. Ucapkan 'simpan' untuk menyimpan.", "success");
-    }
-  };
+  // ==== PERBAIKAN INTELIGEN ====
+  // Tangkap lebih luas: boleh ada kata "sebanyak", "sebesar", dll.
+  const matchDebit = hasil.match(/debit\s+(?:sebanyak|sebesar|senilai|sejumlah)?\s*([\w\s.,-]+)/);
+  const matchKredit = hasil.match(/kredit\s+(?:sebanyak|sebesar|senilai|sejumlah)?\s*([\w\s.,-]+)/);
+  const matchKeterangan = hasil.match(/keterangan\s+(.+)/);
+  const isSimpan = hasil.includes("simpan");
+
+  if (matchDebit) {
+    const debitTeks = matchDebit[1].replace(/rupiah|rp|,|\./g, '').trim();
+    const debitNum = ubahTeksKeAngka(debitTeks);
+    document.getElementById("pemasukan").value = String(debitNum);
+    document.getElementById("pemasukan").dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  if (matchKredit) {
+    const kreditTeks = matchKredit[1].replace(/rupiah|rp|,|\./g, '').trim();
+    const kreditNum = ubahTeksKeAngka(kreditTeks);
+    document.getElementById("pengeluaran").value = String(kreditNum);
+    document.getElementById("pengeluaran").dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  // Keterangan hanya diisi jika tidak terdeteksi debit/kredit
+  if (matchKeterangan && !matchDebit && !matchKredit) {
+    let ket = matchKeterangan[1].replace(/\bsimpan\b.*/, "").trim();
+    document.getElementById("keterangan").value = ket;
+  }
+
+  btnMicOtomatis.classList.remove("listening");
+
+  if (isSimpan) {
+    statusSuara.textContent = "✅ Disimpan otomatis";
+    statusSuara.className = "status-simpan";
+    setTimeout(() => document.getElementById("btnSimpan").click(), 700);
+  } else {
+    statusSuara.textContent = "🟤 Selesai mendengar";
+    statusSuara.className = "status-selesai";
+    showAlert("✅ Data suara terisi. Ucapkan 'simpan' untuk menyimpan.", "success");
+  }
+};
+
 
   recognition.onerror = (e) => {
     console.error("SpeechRecognition error:", e.error);
