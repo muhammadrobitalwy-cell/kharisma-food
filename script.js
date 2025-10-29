@@ -90,16 +90,42 @@ document.getElementById('btnLogout')?.addEventListener('click', async () => {
 
 // =================== LOAD DATA PERUSAHAAN ===================
 async function loadPerusahaan() {
-  const { data, error } = await supabase.from('perusahaan').select('*').limit(1);
-  if (error) return null;
-  if (data.length > 0) {
-    const p = data[0];
-    document.getElementById('mottoPerusahaan').textContent = p.motto_perusahaan;
-    if (p.logo) document.getElementById('logoPerusahaan').src = p.logo;
-    return p.id;
+  const container = document.getElementById('tabPerusahaan');
+  if (!container) return null;
+
+  const { data, error } = await supabase.from('perusahaan').select('*');
+  if (error || !data) return null;
+
+  container.innerHTML = ''; // Kosongkan dulu
+  data.forEach((p, index) => {
+    const btn = document.createElement('button');
+    btn.textContent = p.nama_perusahaan;
+    btn.dataset.id = p.id;
+    if (index === 0) btn.classList.add('active');
+    btn.addEventListener('click', async () => {
+      document.querySelectorAll('.tab-perusahaan button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      perusahaanId = p.id;
+      document.getElementById('namaPerusahaan').textContent = p.nama_perusahaan;
+      if (p.logo) document.getElementById('logoPerusahaan').src = p.logo;
+      await loadLaporan();
+    });
+    container.appendChild(btn);
+  });
+
+  // Tampilkan perusahaan pertama secara default
+  const pertama = data[0];
+  if (pertama) {
+    perusahaanId = pertama.id;
+    document.getElementById('namaPerusahaan').textContent = pertama.nama_perusahaan;
+    if (pertama.logo) document.getElementById('logoPerusahaan').src = pertama.logo;
+    await loadLaporan();
+    return pertama.id;
   }
+
   return null;
 }
+
 
 // =================== SIMPAN TRANSAKSI ===================
 document.getElementById('btnSimpan')?.addEventListener('click', async () => {
@@ -141,13 +167,29 @@ document.getElementById('btnSimpan')?.addEventListener('click', async () => {
 });
 
 // =================== TAMPILKAN LAPORAN ===================
-async function loadLaporan() {
-  const { data, error } = await supabase
-    .from('keuangan_harian')
-    .select('*')
-    .eq('id_perusahaan', perusahaanId)
-    .order('tanggal', { ascending: true });
+async function loadLaporan(selectedMonth = null) {
+  if (!perusahaanId) return;
 
+  // Tentukan range tanggal
+  let startDate, endDate;
+  if (selectedMonth) {
+    const [year, month] = selectedMonth.split("-");
+    startDate = `${year}-${month}-01`;
+    endDate = new Date(year, month, 0).toISOString().split("T")[0]; // akhir bulan
+  }
+
+  // Query data dari supabase
+  let query = supabase
+    .from("keuangan_harian")
+    .select("*")
+    .eq("id_perusahaan", perusahaanId)
+    .order("tanggal", { ascending: true });
+
+  if (startDate && endDate) {
+    query = query.gte("tanggal", startDate).lte("tanggal", endDate);
+  }
+
+  const { data, error } = await query;
   if (error) return;
 
   let saldo = 0;
@@ -159,7 +201,7 @@ async function loadLaporan() {
       <th>Debit</th>
       <th>Kredit</th>
       <th>Saldo</th>
-      ${userRole === 'admin' ? '<th>Aksi</th>' : ''}
+      ${userRole === "admin" ? "<th>Aksi</th>" : ""}
     </tr>
   `;
 
@@ -168,95 +210,83 @@ async function loadLaporan() {
     const kredit = Number(row.kredit || 0);
     saldo += debit - kredit;
     const tglObj = new Date(row.tanggal);
-	  const tgl = `${String(tglObj.getDate()).padStart(2, '0')}/${String(tglObj.getMonth() + 1).padStart(2, '0')}/${String(tglObj.getFullYear()).slice(-2)}`;
-
+    const tgl = `${String(tglObj.getDate()).padStart(2, "0")}/${String(
+      tglObj.getMonth() + 1
+    ).padStart(2, "0")}/${String(tglObj.getFullYear()).slice(-2)}`;
 
     html += `
       <tr>
         <td>${i + 1}</td>
         <td>${tgl}</td>
-        <td class="keterangan">${row.keterangan || ''}</td>
-        <td class="angka">${debit ? formatRupiah(debit) : ''}</td>
-        <td class="angka">${kredit ? formatRupiah(kredit) : ''}</td>
+        <td class="keterangan">${row.keterangan || ""}</td>
+        <td class="angka">${debit ? formatRupiah(debit) : ""}</td>
+        <td class="angka">${kredit ? formatRupiah(kredit) : ""}</td>
         <td class="angka">${formatRupiah(saldo)}</td>
         ${
-          userRole === 'admin'
+          userRole === "admin"
             ? `<td>
                 <button class="btnEdit" data-id="${row.id}">✏️</button>
                 <button class="btnHapus" data-id="${row.id}">🗑️</button>
               </td>`
-            : ''
+            : ""
         }
       </tr>
     `;
   });
 
-  document.getElementById('tabelLaporan').innerHTML = html;
-  document.getElementById('saldoSekarang').textContent = `Saldo Sekarang: ${formatRupiah(saldo)}`;
+  document.getElementById("tabelLaporan").innerHTML = html;
+  document.getElementById("saldoSekarang").textContent = `Saldo Sekarang: ${formatRupiah(saldo)}`;
 
-  // Tambahkan event listener edit/hapus
-  if (userRole === 'admin') {
-    document.querySelectorAll('.btnHapus').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
+  // ==== Event edit / hapus ====
+  if (userRole === "admin") {
+    document.querySelectorAll(".btnHapus").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
         const id = e.target.dataset.id;
-        if (confirm('Hapus transaksi ini?')) {
-          const { error } = await supabase.from('keuangan_harian').delete().eq('id', id);
-          if (error) showAlert('Gagal menghapus: ' + error.message, 'error');
+        if (confirm("Hapus transaksi ini?")) {
+          const { error } = await supabase.from("keuangan_harian").delete().eq("id", id);
+          if (error) showAlert("Gagal menghapus: " + error.message, "error");
           else {
-            showAlert('✅ Data berhasil dihapus!', 'success');
-            loadLaporan();
+            showAlert("✅ Data berhasil dihapus!", "success");
+            loadLaporan(selectedMonth);
           }
         }
       });
     });
 
-    document.querySelectorAll('.btnEdit').forEach(btn => {
-	  btn.addEventListener('click', async (e) => {
-		const id = e.target.dataset.id;
-		const { data } = await supabase.from('keuangan_harian').select('*').eq('id', id).maybeSingle();
-		if (!data) return;
+    document.querySelectorAll(".btnEdit").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const id = e.target.dataset.id;
+        const { data } = await supabase.from("keuangan_harian").select("*").eq("id", id).maybeSingle();
+        if (!data) return;
 
-		// Isi form modal
-		document.getElementById('editPemasukan').value = data.debit ? formatRupiah(data.debit) : '';
-		document.getElementById('editPengeluaran').value = data.kredit ? formatRupiah(data.kredit) : '';
-		document.getElementById('editKeterangan').value = data.keterangan || '';
+        document.getElementById("editPemasukan").value = data.debit ? formatRupiah(data.debit) : "";
+        document.getElementById("editPengeluaran").value = data.kredit ? formatRupiah(data.kredit) : "";
+        document.getElementById("editKeterangan").value = data.keterangan || "";
 
-		const modal = document.getElementById('editModal');
-		modal.style.display = 'flex';
+        const modal = document.getElementById("editModal");
+        modal.style.display = "flex";
 
-		// Tutup modal
-		document.querySelector('.close').onclick = () => {
-		  modal.style.display = 'none';
-		};
+        document.querySelector(".close").onclick = () => (modal.style.display = "none");
+        window.onclick = (ev) => { if (ev.target === modal) modal.style.display = "none"; };
 
-		// Klik di luar modal untuk menutup
-		window.onclick = (ev) => {
-		  if (ev.target === modal) modal.style.display = 'none';
-		};
+        document.getElementById("btnUpdate").onclick = async () => {
+          const debitRaw = document.getElementById("editPemasukan").value.replace(/\D/g, "");
+          const kreditRaw = document.getElementById("editPengeluaran").value.replace(/\D/g, "");
+          const debit = parseFloat(debitRaw) || 0;
+          const kredit = parseFloat(kreditRaw) || 0;
+          const keterangan = document.getElementById("editKeterangan").value.trim();
 
-		// Tombol Update
-		document.getElementById('btnUpdate').onclick = async () => {
-		  const debitRaw = document.getElementById('editPemasukan').value.replace(/\D/g, '');
-		  const kreditRaw = document.getElementById('editPengeluaran').value.replace(/\D/g, '');
-		  const debit = parseFloat(debitRaw) || 0;
-		  const kredit = parseFloat(kreditRaw) || 0;
-		  const keterangan = document.getElementById('editKeterangan').value.trim();
+          const { error } = await supabase.from("keuangan_harian").update({ debit, kredit, keterangan }).eq("id", id);
 
-		  const { error } = await supabase
-			.from('keuangan_harian')
-			.update({ debit, kredit, keterangan })
-			.eq('id', id);
-
-		  if (error) showAlert('Gagal update: ' + error.message, 'error');
-		  else {
-			showAlert('✅ Data berhasil diperbarui!', 'success');
-			modal.style.display = 'none';
-			loadLaporan();
-		  }
-		};
-	  });
-	});
-
+          if (error) showAlert("Gagal update: " + error.message, "error");
+          else {
+            showAlert("✅ Data berhasil diperbarui!", "success");
+            modal.style.display = "none";
+            loadLaporan(selectedMonth);
+          }
+        };
+      });
+    });
   }
 }
 
@@ -597,6 +627,21 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// ==== FILTER LAPORAN PER BULAN ====
+document.getElementById("filterTanggal")?.addEventListener("change", (e) => {
+  const bulanDipilih = e.target.value; // format YYYY-MM
+  loadLaporan(bulanDipilih);
+});
+
+// ==== SET DEFAULT BULAN SEKARANG ====
+document.addEventListener("DOMContentLoaded", () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const defaultMonth = `${year}-${month}`;
+  const input = document.getElementById("filterTanggal");
+  if (input) input.value = defaultMonth;
+});
 
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js', { scope: '/' })
