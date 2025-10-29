@@ -17,7 +17,7 @@
   <div id="loginSection" class="card">
     <header>
       <img id="logoPerusahaan" src="logo-opi.png" alt="Logo OPI FOOD">
-      <h1 id="mottoPerusahaan">Melayani Sepenuh Hati</h1>
+      <h1 id="namaPerusahaan">Melayani sepenuh hati</h1>
     </header>
     <form id="loginForm">
       <h2>Login</h2>
@@ -36,7 +36,9 @@
 	  </div>
 	  <button id="btnLogout" class="btn-logout">Logout</button>
 	</header>
-
+	
+	<!-- Tambah tab perusahaan -->
+	<nav id="tabPerusahaan" class="tab-perusahaan"></nav>
 
     <main class="container">
       <div id="formSection" class="card">
@@ -70,6 +72,11 @@
       </div>
 
       <div id="laporanSection" class="card">
+	  <div id="filterSection" class="card tanggal-filter">
+		  <label for="filterTanggal">📅 Pilih Bulan:</label>
+		  <input type="month" id="filterTanggal">
+		</div>
+
         <div id="saldoSekarang" class="saldo">Saldo Sekarang: Rp 0</div>
         <table id="tabelLaporan">
           <tr>
