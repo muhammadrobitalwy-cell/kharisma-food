@@ -1335,3 +1335,97 @@ form textarea:focus {
   
 }
 
+/* === Perataan vertikal Rp dan input nominal === */
+.input-group {
+  display: flex;
+  align-items: stretch; /* bukan center — biar tinggi keduanya sama */
+}
+
+.input-group span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--oranye);
+  color: #fff;
+  font-weight: 700;
+  padding: 0 14px;              /* hilangkan padding vertikal */
+  border-top-left-radius: 10px;
+  border-bottom-left-radius: 10px;
+}
+
+.input-group input {
+  border: 1.5px solid #d6a75b;
+  border-left: none;
+  background: #fffaf3;
+  padding: 12px 14px;           /* tetap nyaman diketik */
+  border-top-right-radius: 10px;
+  border-bottom-right-radius: 10px;
+  font-size: 1rem;
+  height: auto;
+}
+
+/* ==== TAB PERUSAHAAN ==== */
+.tab-perusahaan {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  background: #fff8ef;
+  border-bottom: 2px solid #d6a75b;
+  padding: 8px 10px;
+  justify-content: center;
+}
+
+.tab-perusahaan button {
+  background: #f5e6d3;
+  border: 1px solid #d6a75b;
+  color: #4a2b0f;
+  padding: 8px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.tab-perusahaan button:hover {
+  background: #ffe8b3;
+  transform: translateY(-2px);
+}
+
+.tab-perusahaan button.active {
+  background: #d6a75b;
+  color: white;
+  border-color: #b78745;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+/* ==== FILTER BULAN ==== */
+.tanggal-filter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff8ef;
+  border: 1px solid #d6a75b;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #4a2b0f;
+}
+
+#filterTanggal {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #d6a75b;
+  font-size: 0.95rem;
+  cursor: pointer;
+  background: #fffaf3;
+  color: #4a2b0f;
+}
+
+#filterTanggal:hover,
+#filterTanggal:focus {
+  border-color: #a47551;
+  box-shadow: 0 0 6px rgba(214, 167, 91, 0.4);
+}
